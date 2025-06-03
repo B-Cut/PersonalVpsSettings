@@ -1,0 +1,8 @@
+- name: Setup local Vagrant machine
+  hosts: all
+  tasks:
+    - name: Setup hosts file
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 bcut.test"
+      become: yes

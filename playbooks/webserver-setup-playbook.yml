@@ -1,0 +1,14 @@
+- name: Web Server First Setup
+  hosts: servers
+  tasks:
+    - name: Ensure Nginx is latest
+      ansible.builtin.dnf:
+        name: nginx
+        state: latest
+        update_cache: yes
+      become: yes
+    - name: Start Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+      become: yes
