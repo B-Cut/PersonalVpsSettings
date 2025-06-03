@@ -1,0 +1,5 @@
+- name: Check if hosts are pingable
+  hosts: servers
+  tasks:
+    - name: Ping hosts
+      ansible.builtin.ping:
