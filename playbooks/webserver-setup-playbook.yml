@@ -2,25 +2,30 @@
   hosts: webservers
   become: true
 
+  vars:
+    site_name: bcut.test
+
   tasks:
-    - name: Ensure Nginx is latest
+    - name: Ensure all dependencies are present
       ansible.builtin.dnf:
-        name: nginx
-        state: latest
-        update_cache: true
-
-    - name: Ensure firewalld is present
-      ansible.builtin.dnf:
-        name: firewalld
+        name: "{{ item }}"
         state: present
+        update_cache: true
+      loop:
+        - firewalld
+        - nginx
+        - cockpit
 
-    - name: Ensure firewalld is running
+    - name: Ensure all firewall and cockpit services are running
       ansible.builtin.systemd:
-        name: firewalld
+        name: "{{ item }}"
         state: started
         enabled: true
+      loop:
+        - firewalld
+        - cockpit
 
-    - name: Allow HTTP and HTTPS traffic through firewall
+    - name: Allow HTTP and HTTPS traffic through firewall along with cockpit
       ansible.posix.firewalld:
         service: "{{ item }}"
         zone: public
@@ -30,6 +35,16 @@
       loop:
         - http
         - https
+        - cockpit
+
+    - name: Close port 9090
+      ansible.builtin.firewalld:
+        port: 9090/tcp
+        state: disabled
+        zone: block
+        immediate: true
+        permanent: true
+        offline: true
 
     - name: Create NGINX user
       ansible.builtin.user:
@@ -67,13 +82,30 @@
                 - core:
                     listen:
                       - port: 80
-                    server_name: bcut.test
+                    server_name: "{{ site_name }}"
 
                   locations:
                     - location: /
                       core:
                         root: /usr/share/nginx/html
                         index: index.html index.html
+                    - location: "/cockpit"
+                      proxy:
+                        pass:
+                          http://localhost:9090
+                        set_header:
+                          - field: Host
+                            value: $host
+                          - field: X-Forwarded-Proto
+                            value: $scheme
+                          - field: Upgrade
+                            value: $http_upgrade
+                          - field: Connection
+                            value: "upgrade"
+                        buffering: false
+                        http_version: "1.1"
+                        gzip:
+                          enabled: false
 
     - name: Start Nginx
       ansible.builtin.service:
