@@ -1,0 +1,13 @@
+- name: Security first Setup
+  hosts: all
+  tasks:
+    - name: Disable SSH password authentication
+      become: true
+      ansible.builtin.lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: "^PasswordAuthentication"
+        line: "PasswordAuthentication no"
+        state: present
+        validate: ssh -t -f %s
+      notify:
+        - restart sshd
