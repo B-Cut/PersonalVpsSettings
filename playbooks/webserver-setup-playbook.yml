@@ -55,6 +55,7 @@
         - http
         - https
         - cockpit
+        - ssh
 
     - name: Close port 9090
       ansible.builtin.firewalld:
