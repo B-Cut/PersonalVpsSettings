@@ -8,13 +8,18 @@
   tasks:
     - name: Ensure all dependencies are present
       ansible.builtin.dnf:
-        name: "{{ item }}"
+        name:
+          - firewalld
+          - nginx
+          - cockpit
+          - libuv
+          - pcp-libs
+          - pcp-conf
+          - pcp-selinux
+          - pcp
+          - python3-pcp
         state: present
         update_cache: true
-      loop:
-        - firewalld
-        - nginx
-        - cockpit
 
     - name: Add cockpit configuration file
       ansible.builtin.file:
@@ -29,6 +34,7 @@
           Origins = http://{{ site_name }} ws://{{ site_name }}
           ProtocolHeader = X-Forwarded-Proto
           UrlRoot = /cockpit
+          
     - name: Fix cockpit proxy 502 error
       ansible.posix.seboolean:
         name: httpd_can_network_connect
@@ -43,6 +49,7 @@
       loop:
         - firewalld
         - cockpit
+        - pmlogger
 
     - name: Allow HTTP and HTTPS traffic through firewall along with cockpit
       ansible.posix.firewalld:
@@ -61,7 +68,6 @@
       ansible.builtin.firewalld:
         port: 9090/tcp
         state: disabled
-        zone: block
         immediate: true
         permanent: true
         offline: true
@@ -109,10 +115,10 @@
                       core:
                         root: /usr/share/nginx/html
                         index: index.html index.html
-                    - location: "/cockpit"
+                    - location: "/cockpit/"
                       proxy:
                         pass:
-                          http://localhost:9090
+                          http://localhost:9090/cockpit/
                         set_header:
                           - field: Host
                             value: $host

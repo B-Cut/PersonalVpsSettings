@@ -1,13 +1,25 @@
 - name: Security first Setup
   hosts: all
+  become: true
   tasks:
     - name: Disable SSH password authentication
-      become: true
       ansible.builtin.lineinfile:
         dest: /etc/ssh/sshd_config
         regexp: "^PasswordAuthentication"
         line: "PasswordAuthentication no"
         state: present
-        validate: ssh -t -f %s
-      notify:
-        - restart sshd
+      
+    - name: Disable SSH login as root
+      ansible.builtin.lineinfile:
+        dest: /etc/ssh/sshd_config
+        line: PermitRootLogin no
+        state: present
+
+    - name: Create admin user
+      ansible.builtin.user:
+        name: admin
+        generate_ssh_key: true
+        password: $6$bSgVQKVWVJYHTIO7$XiLldBCg4s24s5G8MT9dQBHewDizzkhE0kyZmtoqu4kkI1xPxCLEWYiXBulSAfTl0pRvDKSnBjSyVr/FMUPQC/
+        groups:
+          - wheel
+          - adm

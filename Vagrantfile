@@ -15,6 +15,10 @@ Vagrant.configure("2") do |config|
   config.vm.network "private_network", ip: "192.168.56.10"
 
   config.vm.provision :ansible do |ansible|
+   ansible.playbook = "playbooks/security-setup-playbook.yml"
+  end
+
+  config.vm.provision :ansible do |ansible|
     ansible.playbook = "playbooks/vagrant-setup-playbook.yml"
   end
 
