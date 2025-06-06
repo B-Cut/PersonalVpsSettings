@@ -61,16 +61,18 @@
       loop:
         - http
         - https
-        - cockpit
         - ssh
 
-    - name: Close port 9090
-      ansible.builtin.firewalld:
-        port: 9090/tcp
+    - name: Disable cockpit traffic
+      ansible.posix.firewalld:
+        service: cockpit
         state: disabled
+        zone: public
         immediate: true
         permanent: true
         offline: true
+    
+
 
     - name: Create NGINX user
       ansible.builtin.user:
