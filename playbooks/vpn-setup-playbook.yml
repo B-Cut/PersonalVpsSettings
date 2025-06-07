@@ -1,0 +1,54 @@
+- name: Initial VPN Setup
+  hosts: vpn
+  become: true
+
+  tasks:
+    - name: Ensure Wireguard is installed
+      ansible.builtin.dnf:
+        name:
+          - wireguard-tools
+        state: present
+
+    - name: Create Wireguard user
+      ansible.builtin.user:
+        name: wireguard-adm
+
+    - name: Create key storage
+      ansible.builtin.file:
+        path: /etc/wireguard/keys
+        state: directory
+        owner: wireguard-adm
+        mode: "077"
+
+    - name: Create server keys
+      ansible.builtin.shell:
+        chdir: /etc/wireguard/keys
+        cmd: "wg genkey | tee privatekey | wg pubkey > publickey"
+
+    - name: Create interface file
+      ansible.builtin.file:
+        owner: wireguard-adm
+        path: /etc/wireguard/wg0.conf
+        state: touch
+    
+    - name: Get private key
+      ansible.builtin.command:
+        cmd: cat /etc/wireguard/keys/privatekey
+      
+      register: wg_priv_key
+
+    - name: Add interface configuration
+      ansible.builtin.blockinfile:
+        path: /etc/wireguard/wg0.conf
+        block: |
+          [Interface]
+          PrivateKey = {{ wg_priv_key.stdout }}
+          Address = 192.168.56.64/26
+          ListenPort = 51820
+
+    - name: Enable IP Forwarding
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        state: present
+        value: true
+        reload: true
