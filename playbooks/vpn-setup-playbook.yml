@@ -2,6 +2,11 @@
   hosts: vpn
   become: true
 
+  vars:
+    - machine1:
+        pubkey: PK5G4cnqG1683oGNrFyHa8UmuomG/ybzurQKdcGDUAU=
+        priv_ip: 192.168.56.66
+
   tasks:
     - name: Ensure Wireguard is installed
       ansible.builtin.dnf:
@@ -46,9 +51,27 @@
           Address = 192.168.56.64/26
           ListenPort = 51820
 
+    - name: Add peers
+      ansible.builtin.blockinfile:
+        prepend_newline: true
+        path: /etc/wireguard/wg0.conf
+        block: |
+          [Peer]
+          PublicKey = {{ machine1.pubkey }}
+          AllowedIPs = {{ machine1.priv_ip }}/32
+
     - name: Enable IP Forwarding
       ansible.posix.sysctl:
         name: net.ipv4.ip_forward
         state: present
         value: true
         reload: true
+
+    - name: Open wireguard port
+      ansible.posix.firewalld:
+        service: wireguard
+        state: enabled
+        permanent: true
+        immediate: true
+        offline: true
+        zone: public

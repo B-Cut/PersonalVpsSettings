@@ -9,23 +9,23 @@ Vagrant.configure("2") do |config|
 
   # Open our nginx ports on the webserver vm
 
-  #config.vm.define "test_server" do |node|
-  #  node.vm.network "forwarded_port", guest: 80, host: 8080, host_ip: "127.0.0.1"
-  #  node.vm.network "forwarded_port", guest: 443, host: 4040, host_ip: "127.0.0.1"
+  config.vm.define "test_server" do |node|
+    node.vm.network "forwarded_port", guest: 80, host: 8080, host_ip: "127.0.0.1"
+    node.vm.network "forwarded_port", guest: 443, host: 4040, host_ip: "127.0.0.1"
 
-  #  node.vm.network "private_network", ip: "192.168.56.10"
-  #end
+    node.vm.network "private_network", ip: "192.168.56.10"
+  end
 
   config.vm.define "test_vpn_server" do |node|
     node.vm.network "private_network", ip: "192.168.56.240"
   end
 
   config.vm.provision :ansible do |ansible|
-   ansible.playbook = "playbooks/security-setup-playbook.yml"
+    ansible.playbook = "playbooks/vagrant-setup-playbook.yml"
   end
 
   config.vm.provision :ansible do |ansible|
-    ansible.playbook = "playbooks/vagrant-setup-playbook.yml"
+   ansible.playbook = "playbooks/security-setup-playbook.yml"
   end
 
   config.vm.provision :ansible do |ansible|

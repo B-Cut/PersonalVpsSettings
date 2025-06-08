@@ -9,7 +9,6 @@
     - name: Ensure all dependencies are present
       ansible.builtin.dnf:
         name:
-          - firewalld
           - nginx
           - cockpit
           - libuv
@@ -41,13 +40,12 @@
         persistent: true
         state: true
 
-    - name: Ensure all firewall and cockpit services are running
+    - name: Ensure cockpit services are running
       ansible.builtin.systemd:
         name: "{{ item }}"
         state: started
         enabled: true
       loop:
-        - firewalld
         - cockpit
         - pmlogger
 
@@ -63,7 +61,7 @@
         - https
         - ssh
 
-    - name: Disable cockpit traffic
+    - name: Disable cockpit traffic from public network
       ansible.posix.firewalld:
         service: cockpit
         state: disabled
@@ -71,69 +69,23 @@
         immediate: true
         permanent: true
         offline: true
-    
 
+    - name: Add VPN network to internal zone
+      ansible.posix.firewalld:
+        zone: internal
+        source: 192.168.56.64/26
+        state: enabled
 
     - name: Create NGINX user
       ansible.builtin.user:
         name: nginx
         state: present
 
-    - name: Configure NGINX
-      ansible.builtin.include_role:
-        name: nginxinc.nginx_config
-
-      vars:
-        nginx_config_debug_output: true
-
-        nginx_config_main_template_enable: true
-        nginx_config_main_template:
-          template_file: nginx.conf.j2
-          deployment_location: /etc/nginx/nginx.conf
-          backup: true
-          config:
-            main:
-              user: nginx
-              worker_processes: auto
-            http:
-              include:
-                - /etc/nginx/mime.types
-                - /etc/nginx/conf.d/*.conf
-
-        nginx_config_http_template_enable: true
-        nginx_config_http_template:
-          - template_file: http/default.conf.j2
-            deployment_location: /etc/nginx/conf.d/default.conf
-            backup: true
-            config:
-              servers:
-                - core:
-                    listen:
-                      - port: 80
-                    server_name: "{{ site_name }}"
-
-                  locations:
-                    - location: /
-                      core:
-                        root: /usr/share/nginx/html
-                        index: index.html index.html
-                    - location: "/cockpit/"
-                      proxy:
-                        pass:
-                          http://localhost:9090/cockpit/
-                        set_header:
-                          - field: Host
-                            value: $host
-                          - field: X-Forwarded-Proto
-                            value: $scheme
-                          - field: Upgrade
-                            value: $http_upgrade
-                          - field: Connection
-                            value: \"upgrade\"
-                        buffering: false
-                        http_version: "1.1"
-                        gzip:
-                          enabled: false
+    - name: Copy over NGINX config
+      ansible.builtin.copy:
+        src: "./confs/nginx.conf"
+        dest: /etc/nginx/nginx.conf
+        owner: nginx
 
     - name: Start Nginx
       ansible.builtin.service:
