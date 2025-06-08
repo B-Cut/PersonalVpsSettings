@@ -1,2 +1,3 @@
 .vscode/
 .vagrant/
+.ansible_vault_pass
