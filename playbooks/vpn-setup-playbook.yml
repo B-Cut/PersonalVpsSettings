@@ -3,15 +3,18 @@
   become: true
 
   vars:
+    - server_public_key: RHkxpBn9Y1ucu9iHYxmbFskXy+hBpgU3MUx4STJbLi0=
+    - UniqVar: a
     - machine1:
         pubkey: PK5G4cnqG1683oGNrFyHa8UmuomG/ybzurQKdcGDUAU=
         priv_ip: 192.168.56.66
 
   tasks:
-    - name: Ensure Wireguard is installed
+    - name: Ensure Wireguard and necessaru tools are installed
       ansible.builtin.dnf:
         name:
           - wireguard-tools
+          - nftables
         state: present
 
     - name: Create Wireguard user
@@ -25,10 +28,20 @@
         owner: wireguard-adm
         mode: "077"
 
-    - name: Create server keys
-      ansible.builtin.shell:
-        chdir: /etc/wireguard/keys
-        cmd: "wg genkey | tee privatekey | wg pubkey > publickey"
+    - name: Add public key
+      ansible.builtin.lineinfile:
+        path: /etc/wireguard/keys/publickey
+        state: present
+        owner: wireguard-adm
+        create: true
+        line: "{{ server_public_key }}"
+
+    - name: Add private key
+      ansible.builtin.copy:
+        dest: /etc/wireguard/keys/privatekey
+        src: "./secrets/wg_privatekey"
+        owner: wireguard-adm
+        
 
     - name: Create interface file
       ansible.builtin.file:
@@ -42,6 +55,11 @@
       
       register: wg_priv_key
 
+    - name: Get default network interface
+      ansible.builtin.shell:
+        cmd: ip route | grep default | tail -n 1 | awk '{print $5}'
+      register: net_interface
+
     - name: Add interface configuration
       ansible.builtin.blockinfile:
         path: /etc/wireguard/wg0.conf
@@ -50,15 +68,19 @@
           PrivateKey = {{ wg_priv_key.stdout }}
           Address = 192.168.56.64/26
           ListenPort = 51820
+          PostUp = nft add table ip wireguard; nft add chain ip wireguard wireguard_chain {type nat hook postrouting priority srcnat\; policy accept\;}; nft add rule ip wireguard wireguard_chain counter packets 0 bytes 0 masquerade; nft add table ip6 wireguard; nft add chain ip6 wireguard wireguard_chain {type nat hook postrouting priority srcnat\; policy accept\;}; nft add rule ip6 wireguard wireguard_chain counter packets 0 bytes 0 masquerade
+          PostDown = nft delete table ip wireguard; nft delete table ip6 wireguard
 
     - name: Add peers
       ansible.builtin.blockinfile:
         prepend_newline: true
         path: /etc/wireguard/wg0.conf
+        marker: "# {mark} ANSIBLE MANAGED BLOCK {{ machine1.priv_ip }}"
         block: |
           [Peer]
           PublicKey = {{ machine1.pubkey }}
-          AllowedIPs = {{ machine1.priv_ip }}/32
+          AllowedIPs = {{ machine1.priv_ip }}/32, 192.168.1.0/24
+          PersistentKeepalive = 25
 
     - name: Enable IP Forwarding
       ansible.posix.sysctl:
@@ -75,3 +97,13 @@
         immediate: true
         offline: true
         zone: public
+
+    - name: Start wireguard
+      ansible.builtin.command:
+        cmd: wg-quick up wg0
+
+    - name: Enable wireguard
+      ansible.builtin.systemd:
+        service: wg-quick@wg0.service
+        enabled: true
+        
