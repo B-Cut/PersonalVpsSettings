@@ -3,13 +3,14 @@
   become: true
 
   vars:
+    vpn_public_ip: 129.148.50.42/32
     site_name: bcut.test
 
   tasks:
     - name: Ensure all dependencies are present
       ansible.builtin.dnf:
         name:
-          - nginx
+          - nginxwith_items
           - cockpit
           - libuv
           - pcp-libs
@@ -49,7 +50,7 @@
         - cockpit
         - pmlogger
 
-    - name: Allow HTTP and HTTPS traffic through firewall along with cockpit
+    - name: Allow HTTP and HTTPS traffic through firewall
       ansible.posix.firewalld:
         service: "{{ item }}"
         zone: public
@@ -59,7 +60,6 @@
       loop:
         - http
         - https
-        - ssh
 
     - name: Disable cockpit traffic from public network
       ansible.posix.firewalld:
@@ -70,11 +70,15 @@
         permanent: true
         offline: true
 
-    - name: Add VPN network to internal zone
+    - name: Add VPN network to dmz
       ansible.posix.firewalld:
-        zone: internal
-        source: 192.168.56.64/26
+        zone: dmz
+        source: "{{ vpn_public_ip }}"
         state: enabled
+        immediate: true
+        permanent: true
+
+    
 
     - name: Create NGINX user
       ansible.builtin.user:
@@ -91,3 +95,22 @@
       ansible.builtin.service:
         name: nginx
         state: started
+
+    - name: Add cockpit and ssh to dmz
+      ansible.posix.firewalld:
+        service: "{{ item }}"
+        zone: dmz
+        state: enabled
+        immediate: true
+        permanent: true
+      loop:
+        - cockpit
+        - ssh
+
+    - name: Remove ssh from public zone
+      ansible.posix.firewalld:
+        service: ssh
+        zone: public
+        state: disabled
+        immediate: true
+        permanent: true

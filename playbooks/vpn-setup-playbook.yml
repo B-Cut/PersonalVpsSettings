@@ -5,12 +5,16 @@
   vars:
     - server_public_key: RHkxpBn9Y1ucu9iHYxmbFskXy+hBpgU3MUx4STJbLi0=
     - UniqVar: a
-    - machine1:
-        pubkey: PK5G4cnqG1683oGNrFyHa8UmuomG/ybzurQKdcGDUAU=
-        priv_ip: 192.168.56.66
+    - peers:
+        - pubkey: PK5G4cnqG1683oGNrFyHa8UmuomG/ybzurQKdcGDUAU=
+          priv_ip: 192.168.1.2
 
   tasks:
-    - name: Ensure Wireguard and necessaru tools are installed
+    - name: DEBUG ListenPort
+      ansible.builtin.debug:
+        msg: "{{ item.pubkey }}"
+      with_items: "{{ peers }}"
+    - name: Ensure Wireguard and necessary tools are installed
       ansible.builtin.dnf:
         name:
           - wireguard-tools
@@ -27,6 +31,25 @@
         state: directory
         owner: wireguard-adm
         mode: "077"
+
+    - name: Create wireguard scripts storage
+      ansible.builtin.file:
+        path: /etc/wireguard/scripts
+        state: directory
+
+    - name: Copy Post-Up script ( Oracle Cloud Specific )
+      ansible.builtin.copy:
+        src: "./scripts/post-up.sh"
+        dest: /etc/wireguard/scripts/post-up.sh
+        owner: wireguard-adm
+        mode: +x
+      
+    - name: Copy Post-Down script ( Oracle Cloud Specific )
+      ansible.builtin.copy:
+        src: "./scripts/post-down.sh"
+        dest: /etc/wireguard/scripts/post-down.sh
+        owner: wireguard-adm
+        mode: +x
 
     - name: Add public key
       ansible.builtin.lineinfile:
@@ -60,27 +83,28 @@
         cmd: ip route | grep default | tail -n 1 | awk '{print $5}'
       register: net_interface
 
-    - name: Add interface configuration
+    - name: Add interface configuration ( Specific to Oracle Cloud )
       ansible.builtin.blockinfile:
         path: /etc/wireguard/wg0.conf
         block: |
           [Interface]
           PrivateKey = {{ wg_priv_key.stdout }}
-          Address = 192.168.56.64/26
+          Address = 192.168.1.1/24
           ListenPort = 51820
-          PostUp = nft add table ip wireguard; nft add chain ip wireguard wireguard_chain {type nat hook postrouting priority srcnat\; policy accept\;}; nft add rule ip wireguard wireguard_chain counter packets 0 bytes 0 masquerade; nft add table ip6 wireguard; nft add chain ip6 wireguard wireguard_chain {type nat hook postrouting priority srcnat\; policy accept\;}; nft add rule ip6 wireguard wireguard_chain counter packets 0 bytes 0 masquerade
-          PostDown = nft delete table ip wireguard; nft delete table ip6 wireguard
+          PostUp = /etc/wireguard/scripts/post-up.sh
+          PostDown = /etc/wireguard/scripts/post-down.sh
 
     - name: Add peers
       ansible.builtin.blockinfile:
         prepend_newline: true
         path: /etc/wireguard/wg0.conf
-        marker: "# {mark} ANSIBLE MANAGED BLOCK {{ machine1.priv_ip }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item.priv_ip }}"
         block: |
           [Peer]
-          PublicKey = {{ machine1.pubkey }}
-          AllowedIPs = {{ machine1.priv_ip }}/32, 192.168.1.0/24
+          PublicKey = {{ item.pubkey }}
+          AllowedIPs = {{ item.priv_ip }}/32
           PersistentKeepalive = 25
+      loop: "{{ peers }}"
 
     - name: Enable IP Forwarding
       ansible.posix.sysctl:
