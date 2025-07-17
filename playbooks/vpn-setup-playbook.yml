@@ -115,71 +115,67 @@
         value: true
         reload: true
 
-    - name: Add nftables configuration ( Adapted from https://www.procustodibus.com/blog/2021/11/wireguard-nftables/ )
-      ansible.builtin.blockinfile:
-        path: /etc/sysconfig/nftables.conf
-        block: |
-          #!/usr/sbin/nft -f
-          flush ruleset
-
-          define pub_iface = "{{ net_interface.stdout }}"
-          define wg_port = "51820"
-          define oracle_cloud_net = 10.0.0.0/24
-
-          table inet filter {
-            chain input {
-              type filter hook input priority 0; policy drop;
-
-              iif "lo" accept
-              iif "wg0" accept
-              meta l4proto { icmp, ipv6-icmp } accept
-              ct state vmap { invalid : drop, established : accept, related : accept }
-
-              ip6 daddr fe80::/64 udp dport dhcpv6-client accept
-              iifname $pub_iface tcp dport ssh accept
-              iifname $pub_iface udp dport $wg_port accept
-
-              reject
-            }
-
-            chain forward {
-              meta l4proto { icmp, ipv6-icmp } accept
-              ct state vmap { invalid : drop, established : accept, related : accept }
-
-              iifname wg0 oifname $pub_iface ct state new accept
-              iifname $pub_iface oifname wg0 ct state new accept
-              reject with icmpx type admin-prohibited
-            }
-          }
-
-          table nat {
-            chain postrouting {
-              type nat hook postrouting priority srcnat; policy accept;
-              ip saddr $oracle_cloud_net oif $pub_iface masquerade
-            }
-            
-          }
-
-    - name: Restart nftables
-      ansible.builtin.systemd:
-        service: nftables
-        state: restarted
-
-    - name: Open wireguard port
+    - name: Add wireguard port to external zone
       ansible.posix.firewalld:
-        service: wireguard
+        port: 51820/udp
+        state: enabled
+        zone: external
+        immediate: true
+        offline:  true
+        permanent: true
+    
+    
+
+    - name: Add default interface to external zone
+      ansible.posix.firewalld:
+        interface: "{{ net_interface.stdout }}"
+        state: enabled
+        zone: external
+        immediate: true
+        permanent: true
+
+    - name: Remove default interface from public zone
+      ansible.posix.firewalld:
+        interface: "{{ net_interface.stdout }}"
+        state: disabled
+        zone: public
+        immediate: true
+        permanent: true
+
+    - name: Add wireguard interface to internal zone
+      ansible.posix.firewalld:
+        interface: wg0
+        state: enabled
+        zone: internal
+        immediate: true
+        permanent: true
+    
+    - name: Enable masquerading on network
+      ansible.builtin.firewalld:
+        rich_rule: rule family="ipv4" source address="10.0.0.0/24" masquerade
+        zone: external
         state: enabled
         permanent: true
         immediate: true
-        offline: true
-        zone: public
 
-    - name: Start wireguard
+    - name: Add sources to external zone
+      ansible.builtin.firewalld:
+        zone: external
+        source: "{{ item.priv_ip }}"
+        state: enabled
+        permanent: true
+        immediate: true
+
+      loop: "{{ peers }}"
+
+    - name: Set external as default zone
       ansible.builtin.command:
-        cmd: wg-quick up wg0
+        firewall-cmd --set-default-zone=external
+      become: true
 
     - name: Enable wireguard
       ansible.builtin.systemd:
         service: wg-quick@wg0.service
         enabled: true
+        state: started
         
