@@ -10,7 +10,7 @@
     - name: Ensure all dependencies are present
       ansible.builtin.dnf:
         name:
-          - nginxwith_items
+          - nginx
           - cockpit
           - libuv
           - pcp-libs

@@ -7,20 +7,24 @@
     - UniqVar: a
     - peers:
         - pubkey: PK5G4cnqG1683oGNrFyHa8UmuomG/ybzurQKdcGDUAU=
-          priv_ip: 192.168.1.2
+          priv_ip: 192.168.5.2
 
   tasks:
-    - name: DEBUG ListenPort
-      ansible.builtin.debug:
-        msg: "{{ item.pubkey }}"
-      with_items: "{{ peers }}"
     - name: Ensure Wireguard and necessary tools are installed
       ansible.builtin.dnf:
         name:
           - wireguard-tools
           - nftables
+          - pip
+          - firewalld
         state: present
 
+    - name: Install firewall module
+      ansible.builtin.pip:
+        name:
+          - firewall
+        state: present
+    
     - name: Create Wireguard user
       ansible.builtin.user:
         name: wireguard-adm
@@ -89,10 +93,8 @@
         block: |
           [Interface]
           PrivateKey = {{ wg_priv_key.stdout }}
-          Address = 192.168.1.1/24
+          Address = 192.168.5.1/24
           ListenPort = 51820
-          PostUp = /etc/wireguard/scripts/post-up.sh
-          PostDown = /etc/wireguard/scripts/post-down.sh
 
     - name: Add peers
       ansible.builtin.blockinfile:
@@ -112,6 +114,56 @@
         state: present
         value: true
         reload: true
+
+    - name: Add nftables configuration ( Adapted from https://www.procustodibus.com/blog/2021/11/wireguard-nftables/ )
+      ansible.builtin.blockinfile:
+        path: /etc/sysconfig/nftables.conf
+        block: |
+          #!/usr/sbin/nft -f
+          flush ruleset
+
+          define pub_iface = "{{ net_interface.stdout }}"
+          define wg_port = "51820"
+          define oracle_cloud_net = 10.0.0.0/24
+
+          table inet filter {
+            chain input {
+              type filter hook input priority 0; policy drop;
+
+              iif "lo" accept
+              iif "wg0" accept
+              meta l4proto { icmp, ipv6-icmp } accept
+              ct state vmap { invalid : drop, established : accept, related : accept }
+
+              ip6 daddr fe80::/64 udp dport dhcpv6-client accept
+              iifname $pub_iface tcp dport ssh accept
+              iifname $pub_iface udp dport $wg_port accept
+
+              reject
+            }
+
+            chain forward {
+              meta l4proto { icmp, ipv6-icmp } accept
+              ct state vmap { invalid : drop, established : accept, related : accept }
+
+              iifname wg0 oifname $pub_iface ct state new accept
+              iifname $pub_iface oifname wg0 ct state new accept
+              reject with icmpx type admin-prohibited
+            }
+          }
+
+          table nat {
+            chain postrouting {
+              type nat hook postrouting priority srcnat; policy accept;
+              ip saddr $oracle_cloud_net oif $pub_iface masquerade
+            }
+            
+          }
+
+    - name: Restart nftables
+      ansible.builtin.systemd:
+        service: nftables
+        state: restarted
 
     - name: Open wireguard port
       ansible.posix.firewalld:

@@ -2,18 +2,18 @@
 
 # Script obtained from https://www.reddit.com/r/WireGuard/comments/1baeuyx/wireguard_oracle_cloud_step_by_step/
 
-IPT="/sbin/iptables"
-IPT6="/sbin/ip6tables"
+#IPT="/sbin/iptables"
+#IPT6="/sbin/ip6tables"
 
-IN_FACE="ens3"                   # NIC connected to the internet
+IN_FACE=$(ip route | grep default | tail -n 1 | awk '{print $5}')  
 WG_FACE="wg0"                    # WG NIC
 SUB_NET="10.0.0.0/24"          # WG IPv4 sub/net aka CIDR
 WG_PORT="51820"                  # WG udp port
 
 
 # IPv4 rules #
-$IPT -t nat -D POSTROUTING -s $SUB_NET -o $IN_FACE -j MASQUERADE
-$IPT -D INPUT -i $WG_FACE -j ACCEPT
-$IPT -D FORWARD -i $IN_FACE -o $WG_FACE -j ACCEPT
-$IPT -D FORWARD -i $WG_FACE -o $IN_FACE -j ACCEPT
-$IPT -D INPUT -i $IN_FACE -p udp --dport $WG_PORT -j ACCEPT
+#$IPT -t nat -D POSTROUTING -s $SUB_NET -o $IN_FACE -j MASQUERADE
+#$IPT -D INPUT -i $WG_FACE -j ACCEPT
+#$IPT -D FORWARD -i $IN_FACE -o $WG_FACE -j ACCEPT
+#$IPT -D FORWARD -i $WG_FACE -o $IN_FACE -j ACCEPT
+#$IPT -D INPUT -i $IN_FACE -p udp --dport $WG_PORT -j ACCEPT
