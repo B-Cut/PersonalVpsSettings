@@ -1,3 +1,12 @@
 vpn:
   hosts:
-    129.148.50.42:
+    vpn.bcutdev.tech:
+
+webservers:
+  hosts:
+    bcutdev.tech:
+
+oracle:
+  hosts:
+    vpn.bcutdev.tech:
+    bcutdev.tech:
