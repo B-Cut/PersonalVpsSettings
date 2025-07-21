@@ -1,5 +1,5 @@
-- name: Security first Setup
-  hosts: all
+- name: Oracle common setup
+  hosts: oracle
   become: true
   tasks:
     - name: Disable SSH password authentication
@@ -15,7 +15,7 @@
         line: PermitRootLogin no
         state: present
 
-    - name: Create admin user
+    - name: Create common admin user
       ansible.builtin.user:
         name: admin
         generate_ssh_key: true
