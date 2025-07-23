@@ -108,7 +108,7 @@
 
     - name: Move publikey to authorized_keys
       ansible.builtin.copy:
-        src: "./secrets/github_access_key.pub"
+        src: "./secrets/actions_key.pub"
         dest: "/home/githubuser/.ssh/authorized_keys"
         owner: githubuser
         mode: 600
@@ -123,6 +123,18 @@
             HostName github.com
             User git
             IdentityFile /home/githubuser/.ssh/github_access_key
+
+    - name: Set ownership of githubuser/.ssh 
+      ansible.builtin.file:
+        path: /home/githubuser/.ssh
+        owner: githubuser
+        group: githubuser
+
+    - name: Set githubuser/.ssh SELinux context
+      ansible.builtin.sefcontext:
+        path: "/home/githubuser/.ssh(/.*)?"
+        reload: true
+        setype: ssh_home_t
 
     - name: Create NGINX user
       ansible.builtin.user:
