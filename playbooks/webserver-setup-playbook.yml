@@ -19,6 +19,11 @@
           - pcp-selinux
           - pcp
           - python3-pcp
+          - python3
+          - python-devel
+          - augeas
+          - augeas-libs
+          - gcc
           - git
         state: present
         update_cache: true
@@ -136,11 +141,21 @@
         reload: true
         setype: ssh_home_t
 
+    - name: Apply SELinux context
+      ansible.builtin.command:
+        cmd: restorecon -irv /home/githubuser/.ssh
+    
+
     - name: Create NGINX user
       ansible.builtin.user:
         name: nginx
         state: present
         group: blog
+
+    - name: Delete existing blog directory if necessary
+      ansible.builtin.file:
+        path: "{{ blog_path }}"
+        state: absent
 
     - name: Create blog directory
       ansible.builtin.file:
@@ -148,6 +163,7 @@
         state: directory
         group: blog
 
+   
 
     - name: Copy over NGINX config
       ansible.builtin.copy:
@@ -179,6 +195,16 @@
         version: public
         accept_hostkey: yes
         key_file: /home/githubuser/.ssh/github_access_key
+
+    - name: Set correct SELinux context
+      ansible.builtin.sefcontext:
+        path: "{{ blog_path }}(/.*)?"
+        reload: true
+        substitute: httpd_sys_content_t
+
+    - name: Apply SELinux context
+      ansible.builtin.command:
+        cmd: restorecon -irv "{{ blog_path }}"
       
     - name: Ensure correct ownership of contents
       ansible.builtin.file:
@@ -188,9 +214,56 @@
         recurse: yes
         mode: 0755
 
-    - name: Set correct SELinux context
-      ansible.builtin.sefcontext:
-        path: "/www/blog(/.*)?"
-        reload: true
-        setype: httpd_sys_content_t
+    
 
+    - name: Manually create certbot venv
+      ansible.builtin.command:
+        cmd: python3 -m venv /opt/certbot/
+    
+    - name: Update pip
+      ansible.builtin.pip:
+        name:
+          - pip
+        virtualenv: /opt/certbot/
+
+        state: forcereinstall
+
+    - name: Install Certbot
+      ansible.builtin.pip:
+        name:
+          - certbot
+          - certbot-nginx
+
+    - name: Agree to TOS
+      shell: |
+        /usr/local/bin/certbot -n register --agree-tos --email cgoncalves@id.uff.br
+      # If we already have an account, don't count it as an error
+      register: result
+      failed_when:
+        result.rc != 0 and 'existing account' not in result.stderr
+
+
+    - name: Create .registered file
+      ansible.builtin.file:
+        path: /etc/letsencrypt/.registered
+        state: touch
+        
+
+    - name: Add certificate renewal to cron
+      ansible.builtin.cron:
+        name: Certbot renewal
+        user: root
+        month: 12
+        hour: 0
+        minute: 0
+        job: /opt/certbot/bin/python -c 'import random; import time; time.sleep(random.random() * 3600)' && sudo certbot renew -q
+
+    - name: Add monthly Certbot updates
+      ansible.builtin.cron:
+        name: Certbot update 
+        special_time: monthly
+        job: /opt/certbot/bin/pip install --upgrade certbot certbot-nginx
+
+    - name: Get Certificate
+      ansible.builtin.command:
+        cmd: '/usr/local/bin/certbot -n --nginx -d bcutdev.tech'
