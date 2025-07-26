@@ -116,8 +116,7 @@
         src: "./secrets/actions_key.pub"
         dest: "/home/githubuser/.ssh/authorized_keys"
         owner: githubuser
-        mode: 600
-
+        
     - name: Setup github access
       ansible.builtin.blockinfile:
         path: /home/githubuser/.ssh/config
@@ -134,6 +133,11 @@
         path: /home/githubuser/.ssh
         owner: githubuser
         group: githubuser
+
+    - name: Change mode of authorized_keys file
+      ansible.builtin.file:
+        path: "/home/githubuser/.ssh/authorized_keys"
+        mode: 600
 
     - name: Set githubuser/.ssh SELinux context
       ansible.builtin.sefcontext:
@@ -200,7 +204,7 @@
       ansible.builtin.sefcontext:
         path: "{{ blog_path }}(/.*)?"
         reload: true
-        substitute: httpd_sys_content_t
+        substitute: public_content_rw_t
 
     - name: Apply SELinux context
       ansible.builtin.command:
@@ -212,7 +216,7 @@
         owner: admin
         group: blog
         recurse: yes
-        mode: 0755
+        mode: 0775
 
     
 
