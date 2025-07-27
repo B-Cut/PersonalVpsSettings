@@ -8,6 +8,8 @@
     - peers:
         - pubkey: PK5G4cnqG1683oGNrFyHa8UmuomG/ybzurQKdcGDUAU=
           priv_ip: 192.168.5.2
+        - pubkey: MbcW+L+A5tzUq/oXG9qP02KOIEVbimw0ZPdr4uJt3VE=
+          priv_ip: 192.168.5.3
 
   tasks:
     - name: Ensure Wireguard and necessary tools are installed
