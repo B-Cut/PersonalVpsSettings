@@ -270,4 +270,6 @@
 
     - name: Get Certificate
       ansible.builtin.command:
-        cmd: '/usr/local/bin/certbot -n --nginx -d bcutdev.tech'
+        cmd: '/usr/local/bin/certbot -n  --expand --nginx certonly -d cockpit.bcutdev.tech,bcutdev.tech'
+      args:
+        creates: '/etc/letsencrypt/certbot/live/bcutdev.tech'

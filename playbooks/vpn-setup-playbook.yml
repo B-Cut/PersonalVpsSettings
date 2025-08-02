@@ -38,25 +38,6 @@
         owner: wireguard-adm
         mode: "077"
 
-    - name: Create wireguard scripts storage
-      ansible.builtin.file:
-        path: /etc/wireguard/scripts
-        state: directory
-
-    - name: Copy Post-Up script ( Oracle Cloud Specific )
-      ansible.builtin.copy:
-        src: "./scripts/post-up.sh"
-        dest: /etc/wireguard/scripts/post-up.sh
-        owner: wireguard-adm
-        mode: +x
-      
-    - name: Copy Post-Down script ( Oracle Cloud Specific )
-      ansible.builtin.copy:
-        src: "./scripts/post-down.sh"
-        dest: /etc/wireguard/scripts/post-down.sh
-        owner: wireguard-adm
-        mode: +x
-
     - name: Add public key
       ansible.builtin.lineinfile:
         path: /etc/wireguard/keys/publickey
@@ -125,8 +106,6 @@
         immediate: true
         offline:  true
         permanent: true
-    
-    
 
     - name: Add default interface to external zone
       ansible.posix.firewalld:
