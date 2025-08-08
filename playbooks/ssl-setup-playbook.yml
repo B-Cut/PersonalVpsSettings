@@ -1,0 +1,108 @@
+- name: SSL Certificate Setup
+  hosts: webservers
+  become: true
+
+  vars:
+      site_name: bcutdev.tech
+
+      domains: 
+        - bcutdev.tech
+        - cockpit.bcutdev.tech
+
+  tasks:
+    - name: Ensure all dependencies are present
+      ansible.builtin.dnf:
+        name:
+          - python3
+          - python-devel
+          - augeas
+          - augeas-libs
+          - gcc
+          - git
+        state: present
+        update_cache: true
+
+    - name: Manually create certbot venv
+      ansible.builtin.command:
+        cmd: python3 -m venv /opt/certbot/
+    
+    - name: Update pip
+      ansible.builtin.pip:
+        name:
+          - pip
+        virtualenv: /opt/certbot/
+
+        state: forcereinstall
+
+    - name: Install Certbot
+      ansible.builtin.pip:
+        name:
+          - certbot
+          - certbot-nginx
+
+    - name: Agree to TOS
+      shell: |
+        /usr/local/bin/certbot -n register --agree-tos --email cgoncalves@id.uff.br
+      # If we already have an account, don't count it as an error
+      register: result
+      failed_when:
+        result.rc != 0 and 'existing account' not in result.stderr
+
+
+    - name: Create .registered file
+      ansible.builtin.file:
+        path: /etc/letsencrypt/.registered
+        state: touch
+        
+
+    - name: Check if all domains are included in existing certificate (if present)
+      ansible.builtin.script:
+       cmd: "scripts/check_domains_in_certificates.sh {{ domains|join(' ') }}" 
+      register: all_domains_present
+      ignore_errors: true
+
+    - name: Debug result of script
+      ansible.builtin.debug:
+        msg: '{{ all_domains_present }}'
+
+    - name: Add certificate renewal to cron
+      ansible.builtin.cron:
+        name: Certbot renewal
+        user: root
+        month: 2
+        hour: 0
+        minute: 0
+        job: /opt/certbot/bin/python -c 'import random; import time; time.sleep(random.random() * 3600)' && sudo certbot renew -q
+
+    - name: Add monthly Certbot updates
+      ansible.builtin.cron:
+        name: Certbot update 
+        special_time: monthly
+        job: /opt/certbot/bin/pip install --upgrade certbot certbot-nginx
+
+    - name: Get Certificate
+      ansible.builtin.command:
+        cmd: /usr/local/bin/certbot -n  --expand --nginx certonly -d {{ domains|join(',') }}
+      args:
+        creates: '/etc/letsencrypt/certbot/live/{{ site_name }}'
+      when: all_domains_present.rc == 0
+
+    - name: Substitute NGINX listen port for SSL one
+      ansible.builtin.replace:
+        path: /etc/nginx/nginx.conf
+        regexp: 'listen 443;'
+        replace: 'listen 443 ssl;'
+        
+
+    - name: Add SSL Certificate paths to NGINX config
+      ansible.builtin.blockinfile:
+        path: /etc/nginx/nginx.conf
+        insertafter: 'server_name {{ item }};'
+        marker: '# {mark} ANSIBLE MANAGED BLOCK {{ item }}'
+        block: |
+              ssl_certificate_key /etc/letsencrypt/live/{{ site_name }}/privkey.pem;
+              ssl_certificate /etc/letsencrypt/live/{{ site_name }}/fullchain.pem;
+      loop: "{{ domains }}"
+    - name: Reload NGINX
+      ansible.builtin.command:
+        cmd: nginx -s reload
