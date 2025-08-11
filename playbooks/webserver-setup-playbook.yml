@@ -38,7 +38,6 @@
           [WebService]
           Origins = https://{{ site_name }} wss://{{ site_name }}
           ProtocolHeader = X-Forwarded-Proto
-          UrlRoot = /cockpit
           
     - name: Fix cockpit proxy 502 error
       ansible.posix.seboolean:
@@ -83,6 +82,19 @@
         state: enabled
         immediate: true
         permanent: true
+
+    - name: Allow services in DMZ
+      ansible.posix.firewalld:
+        service: "{{ item }}"
+        zone: dmz
+        state: enabled
+        immediate: true
+        permanent: true
+      loop:
+        - http
+        - https
+        - ssh
+        - cockpit
 
     - name: Create blog group
       ansible.builtin.group:
