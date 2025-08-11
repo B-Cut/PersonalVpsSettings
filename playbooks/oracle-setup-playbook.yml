@@ -2,6 +2,21 @@
   hosts: oracle
   become: true
   tasks:
+    - name: Add EPEL repository
+      ansible.builtin.dnf:
+        name:
+          - epel-release
+        state: present
+        update_cache: true
+
+    - name: Install common dependencies
+      ansible.builtin.dnf:
+        name: 
+          - fail2ban
+          - firewalld
+        state: present
+        update_cache: true
+        
     - name: Disable SSH password authentication
       ansible.builtin.lineinfile:
         dest: /etc/ssh/sshd_config
@@ -23,15 +38,13 @@
         groups:
           - wheel
           - adm
-    
-    - name: Ensure firewalld is installed
-      ansible.builtin.dnf:
-        name: firewalld
-        state: present
-        update_cache: true
 
-    - name: Start firewalld
+    - name: Start and enable services
       ansible.builtin.systemd:
-        name: firewalld
+        name: "{{ item }}"
         state: started
         enabled: true
+      loop:
+        - firewalld
+        - fail2ban
+
