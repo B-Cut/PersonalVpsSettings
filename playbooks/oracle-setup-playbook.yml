@@ -39,6 +39,37 @@
           - wheel
           - adm
 
+    - name: Copy default fail2ban config
+      ansible.builtin.copy:
+        src: /etc/fail2ban/jail.conf
+        dest: /etc/fail2ban/jail.local
+        remote_src: true
+      
+
+    - name: Insert fail2ban ssh config
+      ansible.builtin.blockinfile:
+        path: /etc/fail2ban/jail.local
+        state: present
+        insertafter: "^\\[sshd"
+        block: |
+          enabled = true
+          filter = sshd
+          maxretry = 3
+          findtime = 600
+          bantime = 3600
+    
+    - name: Enable nginx jails
+      ansible.builtin.blockinfile:
+        path: /etc/fail2ban/jail.local
+        block: "enabled = true"
+        insertafter: "^\\[{{ item }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
+        state: present
+      loop:
+        - 'nginx-forbidden'
+        - 'nginx-bad-request'
+        - 'nginx-botsearch'
+
     - name: Start and enable services
       ansible.builtin.systemd:
         name: "{{ item }}"
