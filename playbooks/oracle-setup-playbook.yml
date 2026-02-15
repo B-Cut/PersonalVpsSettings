@@ -14,6 +14,7 @@
         name: 
           - fail2ban
           - firewalld
+          - dnf-automatic
         state: present
         update_cache: true
         
@@ -29,15 +30,6 @@
         dest: /etc/ssh/sshd_config
         line: PermitRootLogin no
         state: present
-
-    - name: Create common admin user
-      ansible.builtin.user:
-        name: admin
-        generate_ssh_key: true
-        password: $6$bSgVQKVWVJYHTIO7$XiLldBCg4s24s5G8MT9dQBHewDizzkhE0kyZmtoqu4kkI1xPxCLEWYiXBulSAfTl0pRvDKSnBjSyVr/FMUPQC/
-        groups:
-          - wheel
-          - adm
 
     - name: Copy default fail2ban config
       ansible.builtin.copy:
@@ -69,6 +61,11 @@
         - 'nginx-forbidden'
         - 'nginx-bad-request'
         - 'nginx-botsearch'
+ 
+    - name: Add auto-update config (security updates only)
+      ansible.builtin.copy:
+        dest: /etc/dnf/automatic.conf
+        src: ./confs/dnf_automatic.conf
 
     - name: Start and enable services
       ansible.builtin.systemd:
@@ -78,4 +75,23 @@
       loop:
         - firewalld
         - fail2ban
+        - dnf-automatic.timer
 
+    # Using the same password for both accounts may be technically not that secure, but given that it is a unique password for the machine
+    # I doubt it will be big deal
+
+    - name: Set up opc password
+      ansible.builtin.user:
+        name: opc
+        group: wheel
+        password: $6$0UAqS8/p8DroVQ.i$BrSFKNBMoYM6MbNgPLP01QbJiFBYsce9rszWaKxE4EfdNL9OmCbX/TKbQiDSaKuW3IAy7W6BzIOOOmLqReow80
+
+    - name: Set up root password
+      ansible.builtin.user:
+        name: root
+        password: $6$0UAqS8/p8DroVQ.i$BrSFKNBMoYM6MbNgPLP01QbJiFBYsce9rszWaKxE4EfdNL9OmCbX/TKbQiDSaKuW3IAy7W6BzIOOOmLqReow80
+
+    - name: Remove Oracle Cloud sudoer file
+      ansible.builtin.file:
+        state: absent
+        path: /etc/sudoers.d/90-cloud-init-users
