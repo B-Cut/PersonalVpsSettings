@@ -1,12 +1,8 @@
 vpn:
   hosts:
-    vpn.bcutdev.tech:
-
 webservers:
   hosts:
-    bcutdev.tech:
-
+    137.131.174.9:
 oracle:
   hosts:
-    vpn.bcutdev.tech:
-    bcutdev.tech:
+    137.131.174.9:
