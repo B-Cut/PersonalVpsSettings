@@ -26,33 +26,33 @@
         state: present
         update_cache: true
 
-    - name: Add cockpit configuration file
-      ansible.builtin.file:
-        path: /etc/cockpit/cockpit.conf
-        state: touch
-    - name: Configure cockpit
-      ansible.builtin.blockinfile:
-        path: /etc/cockpit/cockpit.conf
-        append_newline: true
-        block: |
-          [WebService]
-          Origins = https://{{ site_name }} wss://{{ site_name }}
-          ProtocolHeader = X-Forwarded-Proto
+    #- name: Add cockpit configuration file
+    #  ansible.builtin.file:
+    #    path: /etc/cockpit/cockpit.conf
+    #    state: touch
+    #- name: Configure cockpit
+    #  ansible.builtin.blockinfile:
+    #    path: /etc/cockpit/cockpit.conf
+    #    append_newline: true
+    #    block: |
+    #      [WebService]
+    #      Origins = https://{{ site_name }} wss://{{ site_name }}
+    #      ProtocolHeader = X-Forwarded-Proto
           
-    - name: Fix cockpit proxy 502 error
-      ansible.posix.seboolean:
-        name: httpd_can_network_connect
-        persistent: true
-        state: true
+    #- name: Fix cockpit proxy 502 error
+    #  ansible.posix.seboolean:
+    #    name: httpd_can_network_connect
+    #    persistent: true
+    #    state: true
 
-    - name: Ensure cockpit services are running
-      ansible.builtin.systemd:
-        name: "{{ item }}"
-        state: started
-        enabled: true
-      loop:
-        - cockpit
-        - pmlogger
+    #- name: Ensure cockpit services are running
+    #  ansible.builtin.systemd:
+    #    name: "{{ item }}"
+    #    state: started
+    #    enabled: true
+    #  loop:
+    #    - cockpit
+    #    - pmlogger
 
     - name: Allow HTTP and HTTPS traffic through firewall
       ansible.posix.firewalld:
@@ -66,35 +66,35 @@
         - https
         - ssh
 
-    - name: Disable cockpit traffic from public network
-      ansible.posix.firewalld:
-        service: cockpit
-        state: disabled
-        zone: public
-        immediate: true
-        permanent: true
-        offline: true
+    #- name: Disable cockpit traffic from public network
+    #  ansible.posix.firewalld:
+    #    service: cockpit
+    #    state: disabled
+    #    zone: public
+    #    immediate: true
+    #    permanent: true
+    #    offline: true
 
-    - name: Add VPN network to dmz
-      ansible.posix.firewalld:
-        zone: dmz
-        source: "{{ vpn_public_ip }}"
-        state: enabled
-        immediate: true
-        permanent: true
+    #- name: Add VPN network to dmz
+    #  ansible.posix.firewalld:
+    #    zone: dmz
+    #    source: "{{ vpn_public_ip }}"
+    #    state: enabled
+    #    immediate: true
+    #    permanent: true
 
-    - name: Allow services in DMZ
-      ansible.posix.firewalld:
-        service: "{{ item }}"
-        zone: dmz
-        state: enabled
-        immediate: true
-        permanent: true
-      loop:
-        - http
-        - https
-        - ssh
-        - cockpit
+    #- name: Allow services in DMZ
+    #  ansible.posix.firewalld:
+    #    service: "{{ item }}"
+    #    zone: dmz
+    #    state: enabled
+    #    immediate: true
+    #    permanent: true
+    #  loop:
+    #    - http
+    #    - https
+    #    - ssh
+    #    - cockpit
 
     - name: Create blog group
       ansible.builtin.group:
@@ -191,16 +191,16 @@
         state: started
         enabled: true
 
-    - name: Add cockpit and ssh to dmz
-      ansible.posix.firewalld:
-        service: "{{ item }}"
-        zone: dmz
-        state: enabled
-        immediate: true
-        permanent: true
-      loop:
-        - cockpit
-        - ssh
+    #- name: Add cockpit and ssh to dmz
+    #  ansible.posix.firewalld:
+    #    service: "{{ item }}"
+    #    zone: dmz
+    #    state: enabled
+    #    immediate: true
+    #    permanent: true
+    #  loop:
+    #    - cockpit
+    #    - ssh
 
     - name: Clone website contents
       ansible.builtin.git:
