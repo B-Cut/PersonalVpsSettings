@@ -21,6 +21,7 @@
           - python3-pcp
           - python3
           - python3-flask
+          - python3-dotenv
           - python-devel
           - gcc
           - git
@@ -189,6 +190,12 @@
         src: "./scripts/build_hugo.py"
         dest: "{{ blog_path }}"
         owner: githubuser
+
+    - name: Copy .env to script
+      ansible.builtin.copy:
+        src: "./secrets/deploy-env"
+        dest: "{{ blog_path }}/.env"
+        owner githubuser
 
     - name: Enable site
       ansible.builtin.file:

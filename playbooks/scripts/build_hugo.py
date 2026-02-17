@@ -2,6 +2,7 @@
 
 from flask import Flask, request, Response
 from datetime import datetime
+from dotenv import load_dotenv
 import subprocess
 import os
 import sys
@@ -19,6 +20,7 @@ def log(content: str) -> None:
         logfile.write(datetime.today().strftime("%Y-%m-%d %H:%M:%S") + "> " + content)
 
 app = Flask(__name__)
+load_dotenv()
 
 secret = os.environ['GH_DEPLOY_SECRET']
 
@@ -30,7 +32,7 @@ if secret is None:
     err_print("Could not retrieve deploy secret, aborting")
     exit(-1)
 
-if not os.access(git_repo_dir, os.W_OK):
+if os.path.isdir(git_repo_dir) and not os.access(git_repo_dir, os.W_OK):
     err_print(f"Can't write to git repository directory \"{git_repo_dir}\", aborting")
     exit(-2)
 
@@ -62,8 +64,11 @@ def receiveHook():
     commits = [commit['message'] for commit in data['commits']]
 
     try:
-        subprocess.run(["git", "fetch", "--all", "&&", "git", "reset", "--hard", "origin/main"], cwd=git_repo_dir)
-        subprocess.run(["hugo", "build", "-c", git_repo_dir, "-d", public_dir])
+        if not os.path.isdir(git_repo_dir):
+            subprocess.run(["git", "clone", "git@github.com:B-Cut/ProtocoloIpe", git_repo_dir])
+        else: 
+            subprocess.run(["git", "fetch", "--all", "&&", "git", "reset", "--hard", "origin/main"], cwd=git_repo_dir)
+        subprocess.run(["hugo", "build", "-c", git_repo_dir, "-d", public_dir, "-b", "protocoloipe.com"])
 
         log("Deploy sucessfull. Commit Messages: " + ', '.join(commits))
     except Exception as e:
