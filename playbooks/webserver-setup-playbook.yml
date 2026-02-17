@@ -184,9 +184,44 @@
         dest: /etc/nginx/
         owner: nginx
 
+    - name: Copy python webhook listen script
+      ansible.builtin.copy:
+        src: "./scripts/build_hugo.py"
+        dest: "{{ blog_path }}"
+        owner: githubuser
+
+    - name: Enable site
+      ansible.builtin.file:
+        state: link
+        src: "/etc/nginx/sites-available/{{ site_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ site_name }}"
+
+    - name: Enable linger of githubuser
+      command: "loginctl enable-linger githubuser"
+
+    - name: Create python webhook service (Persistence through reboots)
+      ansible.builtin.blockinfile:
+        path: "/home/githubuser/.config/systemd/user/PythonWebhook.service"
+        block: |
+          [Unit]
+          Description=Simple script that listens for POST requests from github
+          [Service]
+          ExecStart=/usr/bin/env python3 {{ blog_path }}/build_hugo.py
+          User=githubuser
+          Group=blog
+          [Install]
+          WantedBy=multi-user.target
+
     - name: Start Nginx
       ansible.builtin.service:
         name: nginx
+        state: started
+        enabled: true
+
+    - name: Enable python webhook service
+      ansible.builtin.systemd_service:
+        name: PythonWebhook.service
+        scope: user
         state: started
         enabled: true
 
@@ -203,11 +238,14 @@
 
     - name: Clone website contents
       ansible.builtin.git:
-        dest: "{{ blog_path }}"
+        dest: /temp/site-files
         repo: git@github.com:B-Cut/ProtocoloIpe.git
-        version: public
         accept_hostkey: yes
         key_file: /home/githubuser/.ssh/github_access_key
+    
+    - name: Hugo build
+      command: "hugo build -c /temp/site-files -d {{ blog_path }}/public -b {{ site_name }}"
+
 
     - name: Set correct SELinux context
       ansible.builtin.sefcontext:
