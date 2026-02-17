@@ -3,13 +3,11 @@
   become: true
 
   vars:
-    - server_public_key: RHkxpBn9Y1ucu9iHYxmbFskXy+hBpgU3MUx4STJbLi0=
-    - UniqVar: a
-    - peers:
-        - pubkey: PK5G4cnqG1683oGNrFyHa8UmuomG/ybzurQKdcGDUAU=
+    server_public_key: RHkxpBn9Y1ucu9iHYxmbFskXy+hBpgU3MUx4STJbLi0=
+    UniqVar: a
+    peers:
+        - pubkey: IgdjHb8k3mgRo0jmAoywAQajsRZoR+BLy7sspCk7zGw=
           priv_ip: 192.168.5.2
-        - pubkey: MbcW+L+A5tzUq/oXG9qP02KOIEVbimw0ZPdr4uJt3VE=
-          priv_ip: 192.168.5.3
 
   tasks:
     - name: Ensure Wireguard and necessary tools are installed

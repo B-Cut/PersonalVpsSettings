@@ -3,9 +3,9 @@
   become: true
 
   vars:
-      site_name: bcutdev.tech
-      blog_path : /www/blog
-      vpn_public_ip: 129.148.50.42
+      site_name: protocoloipe.com
+      blog_path : /sites/protocoloipe.com
+      # vpn_public_ip: 129.148.50.42
 
   tasks:
     - name: Ensure all dependencies are present
@@ -20,9 +20,11 @@
           - pcp
           - python3-pcp
           - python3
+          - python3-flask
           - python-devel
           - gcc
           - git
+          - hugo
         state: present
         update_cache: true
 
@@ -106,7 +108,7 @@
         password: "!"
         group: blog
 
-    - name: Create .ssh directory
+    - name: Create githubuser .ssh directory
       ansible.builtin.file:
         path: /home/githubuser/.ssh
         state: directory
@@ -121,7 +123,7 @@
         - "github_access_key"
         - "github_access_key.pub"
 
-    - name: Move publikey to authorized_keys
+    - name: Move public key to authorized_keys
       ansible.builtin.copy:
         src: "./secrets/actions_key.pub"
         dest: "/home/githubuser/.ssh/authorized_keys"
@@ -158,7 +160,6 @@
     - name: Apply SELinux context
       ansible.builtin.command:
         cmd: restorecon -irv /home/githubuser/.ssh
-    
 
     - name: Create NGINX user
       ansible.builtin.user:
@@ -177,12 +178,10 @@
         state: directory
         group: blog
 
-   
-
     - name: Copy over NGINX config
       ansible.builtin.copy:
-        src: "./confs/nginx.conf"
-        dest: /etc/nginx/nginx.conf
+        src: "./confs/nginx/"
+        dest: /etc/nginx/
         owner: nginx
 
     - name: Start Nginx
@@ -205,7 +204,7 @@
     - name: Clone website contents
       ansible.builtin.git:
         dest: "{{ blog_path }}"
-        repo: git@github.com:B-Cut/HugoBlog.git
+        repo: git@github.com:B-Cut/ProtocoloIpe.git
         version: public
         accept_hostkey: yes
         key_file: /home/githubuser/.ssh/github_access_key
@@ -222,11 +221,8 @@
       
     - name: Ensure correct ownership of contents
       ansible.builtin.file:
-        path: /www
-        owner: admin
+        path: /sites
+        owner: opc
         group: blog
         recurse: yes
         mode: 0775
-
-    
-
